@@ -12,9 +12,20 @@ class ViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view.
+        view.backgroundColor = UIColor.yellow
+        title = "Caliper"
+        
+        let button = UIButton.init()
+        button.setTitle("button", for: UIControl.State.normal)
+        button.backgroundColor = .red
+        view.addSubview(button)
+        button.clp.makeConstraint { (make) in
+            make.left.equalTo(100)
+            make.width.equalTo(100)
+            make.height.equalTo(100)
+            make.top.equalTo(300)
+        }
     }
-
 
 }
 
