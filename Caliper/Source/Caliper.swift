@@ -21,6 +21,45 @@
     public typealias LayoutGuide = UILayoutGuide
 #endif
 
+public protocol CaliperLayoutBase: class {}
+
+extension CaliperLayoutBase {
+    
+    internal var constraints: [NSLayoutConstraint] {
+        return self.constraintsSet.allObjects as! [NSLayoutConstraint]
+    }
+    
+    internal func caliperAdd(constraints: [NSLayoutConstraint]) {
+        let constraintsSet = self.constraintsSet
+        for constraint in constraints {
+            constraintsSet.add(constraint)
+        }
+    }
+    
+    internal func caliperRemove(constraints: [NSLayoutConstraint]) {
+        let constraintsSet = self.constraintsSet
+        for constraint in constraints {
+            constraintsSet.remove(constraint)
+        }
+    }
+    
+    fileprivate var constraintsSet: NSMutableSet {
+        let constraintsSet: NSMutableSet
+        
+        if let existing = objc_getAssociatedObject(self, &constraintsKey) as? NSMutableSet {
+            constraintsSet = existing
+        } else {
+            constraintsSet = NSMutableSet()
+            objc_setAssociatedObject(self, &constraintsKey, constraintsSet, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+        return constraintsSet
+    }
+}
+
+private var constraintsKey: UInt8 = 0
+
+extension CaliperLayoutView : CaliperLayoutBase { }
+
 extension CaliperLayoutView {
     public var clp: CaliperLayoutDSL {
         return CaliperLayoutDSL.init(view: self)
@@ -33,8 +72,14 @@ public class CaliperLayoutDSL {
         self.view = view
     }
     
-    func makeConstraint(_ closure: (CaliperConstraintMaker)->()) {
+    public func makeConstraints(_ closure: (CaliperConstraintMaker)->()) {
         let maker = CaliperConstraintMaker(view: self.view)
+        maker.make(closure)
+    }
+    
+    public func remakeConstraints(_ closure: (CaliperConstraintMaker)->()) {
+        let maker = CaliperConstraintMaker(view: self.view)
+        NSLayoutConstraint.deactivate(self.view.constraintsSet.allObjects as! [NSLayoutConstraint])
         maker.make(closure)
     }
 }
@@ -43,7 +88,7 @@ class CaliperConstraintExtender {
     
 }
 
-class CaliperConstraintMaker {
+public class CaliperConstraintMaker {
     fileprivate unowned(unsafe) var view: CaliperLayoutView
     fileprivate var items = [LayoutItem]()
     fileprivate var constants = [NSLayoutConstraint]()
@@ -54,11 +99,11 @@ class CaliperConstraintMaker {
         self.view.translatesAutoresizingMaskIntoConstraints = false
         closure(self)
         NSLayoutConstraint.activate(constants)
-        constants.removeAll()
+        view.caliperAdd(constraints: constants)
     }
 }
 
-extension CaliperConstraintMaker {
+public extension CaliperConstraintMaker {
     var left: CaliperConstraintMaker {
         let item: LayoutItem = layoutItem(self.view, .left)
       items.append(item)
@@ -110,15 +155,22 @@ extension CaliperConstraintMaker {
       return self
     }
     
-    func equalTo(_ item: LayoutItem) {
+    var edges: CaliperConstraintMaker {
+        return top.left.bottom.right
+    }
+    
+    @discardableResult
+    func equalTo(_ item: LayoutItem) -> Self {
         for it in items {
             let const = it == item
             constants.append(const)
         }
         items.removeAll()
+        return self
     }
     
-    func equalTo(_ item: CGFloat) {
+    @discardableResult
+    func equalTo(_ item: CGFloat) -> Self {
         let dimensionContTyps: [NSLayoutConstraint.Attribute] = [.width, .height]
         let spv = view.superview!
         for it in items {
@@ -132,16 +184,41 @@ extension CaliperConstraintMaker {
             constants.append(const)
         }
         items.removeAll()
+        return self
     }
     
-    func equalToSuperView() {
-        let spv = view.superview!
+    @discardableResult
+    func equalTo(_ toView: CaliperLayoutView) -> Self {
         for it in items {
-            let newItem = layoutItem(spv, it.attribute)
+            let newItem = layoutItem(toView, it.attribute)
             let const = it == newItem
             constants.append(const)
         }
         items.removeAll()
+        return self
+    }
+    
+    @discardableResult
+    func equalToSuperview() -> Self {
+        let spv = view.superview!
+        return equalTo(spv)
+    }
+    
+    @discardableResult
+    func offset(_ o: CGFloat) -> Self {
+        constants.forEach { $0.constant += o }
+        return self
+    }
+    
+    @discardableResult
+    func multiplier(_ m: CGFloat) -> Self {
+        var newConstants = [NSLayoutConstraint]()
+        for c in constants {
+            let layoutC = NSLayoutConstraint.init(item: c.firstItem!, attribute: c.firstAttribute, relatedBy: c.relation, toItem: c.secondItem, attribute: c.secondAttribute, multiplier: m, constant: c.constant)
+            newConstants.append(layoutC)
+        }
+        constants = newConstants
+        return self
     }
 }
 
