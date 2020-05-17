@@ -119,7 +119,7 @@ extension CaliperConstraintMaker {
     }
     
     func equalTo(_ item: CGFloat) {
-        let dimensionContTyps: [NSLayoutConstraint.Attribute] = [.width, .height, .centerX, .centerY]
+        let dimensionContTyps: [NSLayoutConstraint.Attribute] = [.width, .height]
         let spv = view.superview!
         for it in items {
             let const: NSLayoutConstraint
@@ -150,6 +150,9 @@ extension CaliperLayoutView: LayoutRegion {}
 
 @available(iOS 9.0, OSX 10.11, *)
 extension LayoutGuide: LayoutRegion {}
+
+public class Position {}
+public class Dimension {}
 
 public final class LayoutItem {
     public let item: AnyObject

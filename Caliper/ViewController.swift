@@ -23,7 +23,7 @@ class ViewController: UIViewController {
             make.left.equalTo(100)
             make.width.equalTo(100)
             make.height.equalTo(100)
-            make.top.equalTo(300)
+            make.centerY.equalTo(100)
         }
     }
 
